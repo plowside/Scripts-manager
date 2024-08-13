@@ -1,0 +1,9 @@
+httpx
+pyjwt
+typing
+fastapi
+uvicorn
+uvicorn[standard]
+asyncpg
+pydantic
+python-jose
