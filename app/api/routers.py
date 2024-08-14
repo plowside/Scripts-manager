@@ -80,7 +80,7 @@ async def license_key(payload: LicenseKeyPayload):
 
 
 @router.post('/encrypt')
-async def encrypt(action: str, project_uuid: str = Form(None), files_to_encrypt: str = Form(None), project_file: UploadFile = File(...)):
+async def encrypt(action: str, project_uuid: str = Form(None), files_to_encrypt: str = Form(None), project_file: UploadFile = File(None)):
 	try:
 		if files_to_encrypt:
 			files_to_encrypt = json.loads(files_to_encrypt)

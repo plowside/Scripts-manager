@@ -169,13 +169,14 @@ async def Project_search(message: types.Message, state: FSMContext):
 	mt = message.text.strip()
 
 	async with httpx.AsyncClient() as client:
-		resp = (await client.post(f'{website_url}/api/project', json={'action': 'get', 'id': mt, 'name': mt, 'uuid': mt})).json()
+		resp = (await client.post(f'{website_url}/api/project', json={'action': 'get', 'id': mt if mt.isdigit() else None, 'name': mt, 'uuid': mt})).json()
+		print(resp)
 		if resp['error']:
 			await state.finish()
 			return await message.answer(f'Ошибка при поиске проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
 		if resp['project']:
 			await state.finish()
-			await message.answer(f'<b>Информация о проекте</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{mt}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_manage(resp['project']))
+			await message.answer(f'<b>Информация о проекте</b>\n├ ID:  <code>{resp["project"]["id"]}</code>\n├ Название:  <code>{resp["project"]["name"]}</code>\n├ Соль:  <code>{resp["project"]["salt"]}</code>\n└ UUID: <code>{resp["project"]["uuid"]}</code>\n<i>Выберите файлы для крипта</i>', reply_markup=await kb_project_manage(resp['project']))
 		else:
 			await call.message.edit_text('<b>Поиск проекта</b>\n<b>❌ Не удалось найти проект с задаными параметрами</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
 
@@ -201,29 +202,30 @@ async def Project_create(message: types.Message, state: FSMContext):
 				file = await bot.get_file(message.document.file_id)
 
 				file_resp = await client.get(f'https://api.telegram.org/file/bot{bot_token}/{file.file_path}')
-				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'upload_zip', 'project_uuid': data['project']['uuid']}, files={'project_file': file_resp.content})).json()
+				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'upload_zip'}, files={'project_uuid': (None, data['project']['uuid']), 'project_file': file_resp.content})).json()
 				if resp['error']:
 					await state.finish()
 					return await message.answer(f'Ошибка при загрузке файлов проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
 				data['files_to_encrypt'] = resp['files_to_encrypt']
 			data['state'] = 'choose_files'
-			await message.answer(f'<b>Создание проекта</b>\n└ Название:  <code>{mt}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_create(state='choose_files', files_to_encrypt=data['files_to_encrypt']))
+			await message.answer(f'<b>Создание проекта</b>\n└ Название:  <code>{data["name"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_create(state='choose_files', files_to_encrypt=data['files_to_encrypt']))
 @dp.callback_query_handler(state=Project.create)
 async def Project_create_(call: types.CallbackQuery, state: FSMContext):
 	cd = call.data.split(':')
 	async with state.proxy() as data:
 		if len(cd) == 2 and cd[0] == '__encrypt__' and cd[1] == '__encrypt__':
 			async with httpx.AsyncClient() as client:
-				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'encrypt'}, files={'project_uuid': data['project']['uuid'], 'files_to_encrypt': data['files_to_encrypt']})).json()
+				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'encrypt'}, files={'project_uuid': (None, data['project']['uuid']), 'files_to_encrypt': (None, json.dumps(data['files_to_encrypt']))})).json()
 				if resp['error']:
 					await state.finish()
 					return await call.message.edit_text(f'Ошибка при загрузке файлов проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
 
-			await call.message.edit_text(f'<b>Проект создан</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{mt}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_manage(data['project']))
+			await call.message.edit_text(f'<b>Проект создан</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_manage(data['project']))
 			await state.finish()
+			return
 
 		data['files_to_encrypt'][cd[0]] += 1 if data['files_to_encrypt'][cd[0]] in (0, 1) else -2
-		await call.message.edit_text(f'<b>Создание проекта</b>\n└ Название:  <code>{mt}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_create(state='choose_files', files_to_encrypt=data['files_to_encrypt']))
+		await call.message.edit_text(f'<b>Создание проекта</b>\n└ Название:  <code>{data["name"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_create(state='choose_files', files_to_encrypt=data['files_to_encrypt']))
 
 
 @dp.callback_query_handler(text_startswith='utils', state='*')

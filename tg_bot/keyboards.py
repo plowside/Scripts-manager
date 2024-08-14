@@ -36,7 +36,7 @@ async def kb_project_menu():
 	return keyboard
 
 async def kb_project_manage(project):
-	s = {'✏️ Переименовать': f'cd^project:{project["id"]}:change:name', 'Удалить': f'cd^project:{project["id"]}:delete'}
+	s = {'✏️ Переименовать': f'cd^project:{project["id"]}:change:name', 'Удалить': f'cd^project:{project["id"]}:delete', '↪ Назад': 'cd^utils:menu'}
 	keyboard = await kb_construct(InlineKeyboardMarkup(row_width=2), s)
 	return keyboard
 
