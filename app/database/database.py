@@ -32,6 +32,7 @@ class AsyncPostgresDB:
 			await conn.execute('''
 				CREATE TABLE IF NOT EXISTS project(
 					id SERIAL PRIMARY KEY,
+					uuid VARCHAR(50) NOT NULL,
 					name VARCHAR(50) NOT NULL,
 					salt VARCHAR(100) NOT NULL,
 					create_ts BIGINT NOT NULL

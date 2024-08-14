@@ -5,5 +5,8 @@ fastapi
 uvicorn
 uvicorn[standard]
 asyncpg
+aiofiles
 pydantic
 python-jose
+cryptography
+python-multipart

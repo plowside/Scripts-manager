@@ -3,6 +3,7 @@ from pydantic import BaseModel
 class Project(BaseModel):
 	id: int
 	name: str
+	uuid: str
 	salt: str
 	create_ts: int
 

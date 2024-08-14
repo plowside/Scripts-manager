@@ -9,7 +9,7 @@ class Database(BaseModel):
 
 class Settings(BaseModel):
 	database: Database
-	default_salt: bytes
+	default_salt: str
 
 
 
@@ -17,11 +17,11 @@ class Settings(BaseModel):
 
 settings = Settings(
 	database=Database(
-		user='postgres',
-		password='plowside',
-		database='test_license',
-		host='localhost',
+		user='neondb_owner',
+		password='3h2WSfPTdIDk',
+		database='neondb',
+		host='ep-wispy-wind-a2usxind.eu-central-1.aws.neon.tech',
 		port=5432
 	),
-	default_salt='C7JO-z2qkb1qoLfkuxmyZJ4q7OqdFucPyYY2YSvVvZc='.encode()
+	default_salt='C7JO-z2qkb1qoLfkuxmyZJ4q7OqdFucPyYY2YSvVvZc='
 )

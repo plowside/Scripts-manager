@@ -35,7 +35,7 @@ if exist requirements.txt (
 REM Run the main.py script using the python interpreter from the virtual environment
 cls
 echo Running main.py...
-venv\Scripts\python.exe -m uvicorn app.app:app --reload --host 0.0.0.0 --port 80
+venv\Scripts\python.exe -m uvicorn app.app:app --host 0.0.0.0 --port 80
 
 endlocal
 pause
