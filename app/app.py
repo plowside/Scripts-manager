@@ -17,6 +17,8 @@ from .database.database import db
 async def process_tasks_on_startup():
 	await db.init_pool()
 
+
+
 #################################################################################################################################
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +27,7 @@ async def lifespan(app: FastAPI):
 	await db.close_pool()
 
 app = FastAPI(lifespan=lifespan, title='Scheduler')
+app.mount('/storage', StaticFiles(directory='app/storage'), name='storage')
 app.include_router(api_router)
 app.add_middleware(
 	CORSMiddleware,

@@ -40,12 +40,14 @@ class Project:
 			raise e
 
 	@staticmethod
-	async def get(id: int = None, name: str = None, uuid: str = None):
+	async def get(id: int = None, name: str = None, uuid: str = None, all: bool = False):
 		try:
 			if id or name or uuid:
 				get_project = await db.fetchrow('SELECT * FROM project WHERE id = $1 OR name = $2 OR uuid = $3', id, name, uuid)
 				if get_project:
 					return db.Project(**get_project)
+			elif all:
+				return await db.fetch('SELECT * FROM project ORDER BY create_ts DESC')
 			return None
 		except Exception as e:
 			raise e
@@ -54,6 +56,14 @@ class Project:
 	async def update(id: int, name: str):
 		try:
 			await db.execute('UPDATE project SET name = $1 WHERE id = $2', name, id)
+			return True
+		except Exception as e:
+			raise e
+
+	@staticmethod
+	async def delete(id: int):
+		try:
+			await db.execute('DELETE FROM project WHERE id = $1', id)
 			return True
 		except Exception as e:
 			raise e
@@ -104,6 +114,14 @@ class LicenseKey:
 	async def update(id: int, exp_ts: int):
 		try:
 			await db.execute('UPDATE license_key SET exp_ts = $1 WHERE id = $2', exp_ts, id)
+			return True
+		except Exception as e:
+			raise e
+
+	@staticmethod
+	async def delete(id: int):
+		try:
+			await db.execute('DELETE FROM license_key WHERE id = $1', id)
 			return True
 		except Exception as e:
 			raise e
@@ -228,7 +246,7 @@ class EncryptSystem:
 	async def handle_file_encryption(self, file_path, action, template_code):
 		match action:
 			case 1:
-				process = await asyncio.create_subprocess_shell(f'pyarmor gen {file_path}')
+				process = await asyncio.create_subprocess_shell(f'pyarmor gen --platform linux.x86_64,windows.x86_64 {file_path}')
 				await process.communicate()
 			case 2:
 				async with aiofiles.open(file_path, 'r', encoding='utf-8') as original_file:
@@ -239,7 +257,7 @@ class EncryptSystem:
 				async with aiofiles.open(file_path, 'w', encoding='utf-8') as modified_file:
 					await modified_file.write(modified_code)
 				
-				process = await asyncio.create_subprocess_shell(f'pyarmor gen {file_path}')
+				process = await asyncio.create_subprocess_shell(f'pyarmor gen --platform linux.x86_64,windows.x86_64 {file_path}')
 				await process.communicate()
 
 	def create_zip_archive(self, directory: str):

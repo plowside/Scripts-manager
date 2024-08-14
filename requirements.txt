@@ -9,4 +9,6 @@ aiofiles
 pydantic
 python-jose
 cryptography
+pyarmor
+pyarmor.cli.core.windows
 python-multipart

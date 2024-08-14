@@ -19,7 +19,7 @@ this_hwid = get_machine_id()
 key = input('Введите ключ активации: ').strip().upper()
 hwid = f'{key}:{this_mac}:{this_hwid}'
 encrypted_text = cipher.encrypt(hwid.encode()).decode()
-req = requests.post('http://localhost/api/license_key', json={'action': 'check', 'key': encrypted_text})
+req = requests.post('https://test.shpotipad.ru/api/license_key', json={'action': 'check', 'key': encrypted_text})
 resp = req.json()
 if resp['error']:
 	exit(resp['error_desc'])

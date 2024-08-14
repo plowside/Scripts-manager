@@ -15,6 +15,11 @@ router = APIRouter(
 )
 
 
+@router.get('/project')
+async def get_project(project_id: int):
+	get_project = await Project.get(id=project_id)
+	return f'/storage/{get_project.uuid}'
+
 @router.post('/project')
 async def project(payload: ProjectPayload):
 	action = payload.action
@@ -27,6 +32,14 @@ async def project(payload: ProjectPayload):
 			case 'get':
 				get_project = await Project.get(id=payload.id, name=payload.name, uuid=payload.uuid)
 				return {'error': False, 'project': get_project}
+			
+			case 'delete':
+				await Project.delete(id=payload.id)
+				return {'error': False, 'status': True}
+			
+			case 'get_all':
+				get_all_project = await Project.get(all=True)
+				return {'error': False, 'project': get_all_project}
 
 			case 'update':
 				update_project = await Project.update(id=payload.id, name=payload.name)
@@ -56,6 +69,10 @@ async def license_key(payload: LicenseKeyPayload):
 				update_license_key = await LicenseKey.update(id=payload.id, exp_ts=payload.exp_ts)
 				get_license_key = await LicenseKey.get(id=payload.id)
 				return {'error': False, 'license_key': get_license_key}
+			
+			case 'delete':
+				await Key.delete(id=payload.id)
+				return {'error': False, 'status': True}
 
 			case 'check':
 				decrypted_payload = await LicenseKey.decrypt(encrypted_payload=payload.key, key=settings.default_salt)

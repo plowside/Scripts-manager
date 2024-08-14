@@ -42,6 +42,11 @@ class is_reg(BoundFilter):
 class Project(StatesGroup):
 	create = State()
 	search = State()
+
+class Key(StatesGroup):
+	create = State()
+	search = State()
+	change = State()
 #################################################################################################################################
 
 # Стартовая команда - /start
@@ -50,7 +55,7 @@ async def CommandStart_(message: types.Message, state: FSMContext):
 	await state.finish()
 	uid, username, first_name = get_user(message)
 
-	await message.answer(text=f'<b>Меню управления криптом</b>', reply_markup=await kb_menu(uid))
+	await message.answer(text=f'<b>Меню управления криптом</b>', reply_markup=await kb_menu())
 
 
 
@@ -147,6 +152,15 @@ async def handler_utils(call: types.CallbackQuery, state: FSMContext, custom_dat
 	if cd[1] == 'menu':
 		await call.message.edit_text('<b>Управление проектами</b>', reply_markup=await kb_project_menu())
 	
+	elif cd[1] == 'all':
+		await call.message.edit_text('<b>Все проекты</b>', reply_markup=await kb_project_all())
+
+	elif cd[1] == 'delete':
+		async with httpx.AsyncClient() as client:
+			resp = await client.post(f'{website_url}/api/project', json={'action': 'delete', 'id': int(cd[2])})
+
+		await call.message.edit_text('<b>Управление проектами</b>', reply_markup=await kb_project_menu())
+
 	elif cd[1] == 'create':
 		if len(cd) == 2:
 			await call.message.edit_text('<b>Создание проекта</b>\n<i>Введите название</i>', reply_markup=await kb_project_create(state='name'))
@@ -161,25 +175,20 @@ async def handler_utils(call: types.CallbackQuery, state: FSMContext, custom_dat
 				data['state'] = 'archive'
 
 	elif cd[1] == 'search':
-		await call.message.edit_text('<b>Поиск проекта</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
-		await Project.search.set()
-
-@dp.message_handler(state=Project.search)
-async def Project_search(message: types.Message, state: FSMContext):
-	mt = message.text.strip()
-
-	async with httpx.AsyncClient() as client:
-		resp = (await client.post(f'{website_url}/api/project', json={'action': 'get', 'id': mt if mt.isdigit() else None, 'name': mt, 'uuid': mt})).json()
-		print(resp)
-		if resp['error']:
-			await state.finish()
-			return await message.answer(f'Ошибка при поиске проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
-		if resp['project']:
-			await state.finish()
-			await message.answer(f'<b>Информация о проекте</b>\n├ ID:  <code>{resp["project"]["id"]}</code>\n├ Название:  <code>{resp["project"]["name"]}</code>\n├ Соль:  <code>{resp["project"]["salt"]}</code>\n└ UUID: <code>{resp["project"]["uuid"]}</code>\n<i>Выберите файлы для крипта</i>', reply_markup=await kb_project_manage(resp['project']))
+		if len(cd) == 2:
+			await call.message.edit_text('<b>Поиск проекта</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
+			await Project.search.set()
 		else:
-			await call.message.edit_text('<b>Поиск проекта</b>\n<b>❌ Не удалось найти проект с задаными параметрами</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
-
+			async with httpx.AsyncClient() as client:
+				resp = (await client.post(f'{website_url}/api/project', json={'action': 'get', 'id': int(cd[2])})).json()
+				if resp['error']:
+					await state.finish()
+					return await call.message.edit_text(f'Ошибка при поиске проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
+				if resp['project']:
+					await state.finish()
+					await call.message.edit_text(f'<b>Информация о проекте</b>\n├ ID:  <code>{resp["project"]["id"]}</code>\n├ Название:  <code>{resp["project"]["name"]}</code>\n├ Соль:  <code>{resp["project"]["salt"]}</code>\n└ UUID: <code>{resp["project"]["uuid"]}</code>', reply_markup=await kb_project_manage(resp['project']))
+				else:
+					await call.message.edit_text('<b>Поиск проекта</b>\n<b>❌ Не удалось найти проект с задаными параметрами</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
 
 
 @dp.message_handler(state=Project.create, content_types=['document', 'text'])
@@ -220,12 +229,184 @@ async def Project_create_(call: types.CallbackQuery, state: FSMContext):
 					await state.finish()
 					return await call.message.edit_text(f'Ошибка при загрузке файлов проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
 
-			await call.message.edit_text(f'<b>Проект создан</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_manage(data['project']))
+			await call.message.edit_text(f'<b>Проект создан</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>', reply_markup=await kb_project_manage(data['project']))
 			await state.finish()
 			return
 
 		data['files_to_encrypt'][cd[0]] += 1 if data['files_to_encrypt'][cd[0]] in (0, 1) else -2
 		await call.message.edit_text(f'<b>Создание проекта</b>\n└ Название:  <code>{data["name"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_create(state='choose_files', files_to_encrypt=data['files_to_encrypt']))
+
+@dp.message_handler(state=Project.search)
+async def Project_search(message: types.Message, state: FSMContext):
+	mt = message.text.strip()
+	async with httpx.AsyncClient() as client:
+		payload = {'action': 'get', 'name': mt, 'uuid': mt}
+		if mt.isdigit(): payload['id'] = mt
+		resp = (await client.post(f'{website_url}/api/project', json=payload)).json()
+		if resp['error']:
+			await state.finish()
+			return await message.answer(f'Ошибка при поиске проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
+		if resp['project']:
+			await state.finish()
+			await message.answer(f'<b>Информация о проекте</b>\n├ ID:  <code>{resp["project"]["id"]}</code>\n├ Название:  <code>{resp["project"]["name"]}</code>\n├ Соль:  <code>{resp["project"]["salt"]}</code>\n└ UUID: <code>{resp["project"]["uuid"]}</code>', reply_markup=await kb_project_manage(resp['project']))
+		else:
+			await message.answer('<b>Поиск проекта</b>\n<b>❌ Не удалось найти проект с задаными параметрами</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
+
+
+
+
+
+
+@dp.callback_query_handler(text_startswith='key', state='*')
+async def handler_key(call: types.CallbackQuery, state: FSMContext, custom_data = None):
+	await state.finish()
+	cd = custom_data.split(':') if custom_data else call.data.split(':')
+
+	if cd[1] == 'menu':
+		await call.message.edit_text('<b>Управление ключами</b>', reply_markup=await kb_key_menu())
+
+	elif cd[1] == 'delete':
+		async with httpx.AsyncClient() as client:
+			resp = await client.post(f'{website_url}/api/license_key', json={'action': 'delete', 'id': int(cd[2])})
+
+		await call.message.edit_text('<b>Управление ключами</b>', reply_markup=await kb_key_menu())
+	
+	elif cd[1] == 'create':
+		if len(cd) == 2:
+			await call.message.edit_text('<b>Создание ключа</b>\n<i>Выберите проект</i>', reply_markup=await kb_key_create(state='select_project'))
+		else:
+			project_id = int(cd[2])
+			await call.message.edit_text('<b>Создание ключа</b>\n<i>Введите срок действия ключа в секундах</i>', reply_markup=await kb_key_create(state='enter_exp_ts'))
+			await Key.create.set()
+			async with state.proxy() as data:
+				data['project_id'] = project_id
+				data['state'] = 'exp_ts'
+	
+	elif cd[1] == 'search':
+		await call.message.edit_text('<b>Поиск ключа</b>\n<i>Введите ID\\значение ключа </i>', reply_markup=await kb_back('key:menu'))
+		await Key.search.set()
+
+	elif cd[1] == 'change':
+		license_key_id = int(cd[2])
+		action = cd[3]
+		if action == 'exp_ts':
+			await call.message.edit_text('<b>Изменение ключа</b>\n<i>Введите срок действия ключа в секундах</i>', reply_markup=await kb_key_change(state='enter_exp_ts'))
+			await Key.change.set()
+			async with state.proxy() as data:
+				data['license_key_id'] = license_key_id
+				data['state'] = 'exp_ts'
+
+@dp.message_handler(state=Key.create)
+async def Key_create(message: types.Message, state: FSMContext):
+	async with state.proxy() as data:
+		if data['state'] == 'exp_ts':
+			mt = message.text
+			try: exp_ts = int(mt)
+			except: return await message.answer('Введите число без символов')
+			data['exp_ts'] = exp_ts
+			data['state'] = 'max_conns'
+			await message.answer(f'<b>Создание ключа</b>\n└ Срок действия:  <code>{exp_ts}</code> секунд\n<i>Введите максимальное количество подключений</i>', reply_markup=await kb_key_create(state='enter_max_conns'))
+		
+		elif data['state'] == 'max_conns':
+			mt = message.text
+			try: max_conns = int(mt)
+			except: return await message.answer('Введите число без символов')
+			data['max_conns'] = max_conns
+			async with httpx.AsyncClient() as client:
+				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'create', 'project_id': data['project_id'], 'max_connections': data['max_conns'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
+				if resp['error']:
+					await state.finish()
+					return await message.answer(f'Ошибка при создании ключа: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('key:menu'))
+				data['license_key'] = resp['license_key']
+
+			await state.finish()
+			await message.answer(f'<b>Ключ создан</b>\n├ ID:  <code>{data["license_key"]["id"]}</code>\n├ Макс. подключений:  <code>{data["license_key"]["max_connections"]}</code>\n├ Активен до:  <code>{datetime.fromtimestamp(data["license_key"]["exp_ts"])}</code>\n└ Значение:  <code>{data["license_key"]["value"]}</code>', reply_markup=await kb_key_manage(data['license_key']))
+@dp.callback_query_handler(state=Key.create)
+async def Key_create_(call: types.CallbackQuery, state: FSMContext):
+	cd = call.data.split(':')
+	async with state.proxy() as data:
+		if data['state'] == 'exp_ts':
+			try: exp_ts = int(cd[0])
+			except: return
+			data['exp_ts'] = exp_ts
+			data['state'] = 'max_conns'
+			await call.message.edit_text(f'<b>Создание ключа</b>\n└ Срок действия:  <code>{exp_ts}</code> секунд\n<i>Введите максимальное количество подключений</i>', reply_markup=await kb_key_create(state='enter_max_conns'))
+		
+		elif data['state'] == 'max_conns':
+			try: max_conns = int(cd[0])
+			except Exception as e: return await call.answer(f'error: {e}')
+			data['max_conns'] = max_conns
+			async with httpx.AsyncClient() as client:
+				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'create', 'project_id': data['project_id'], 'max_connections': data['max_conns'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
+				if resp['error']:
+					await state.finish()
+					return await message.answer(f'Ошибка при создании ключа: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('key:menu'))
+				data['license_key'] = resp['license_key']
+
+			await state.finish()
+			await call.message.edit_text(f'<b>Ключ создан</b>\n├ ID:  <code>{data["license_key"]["id"]}</code>\n├ Макс. подключений:  <code>{data["license_key"]["max_connections"]}</code>\n├ Активен до:  <code>{datetime.fromtimestamp(data["license_key"]["exp_ts"])}</code>\n└ Значение:  <code>{data["license_key"]["value"]}</code>', reply_markup=await kb_key_manage(data['license_key']))
+
+@dp.message_handler(state=Key.change)
+async def Key_change(message: types.Message, state: FSMContext):
+	async with state.proxy() as data:
+		if data['state'] == 'exp_ts':
+			mt = message.text
+			try: exp_ts = int(mt)
+			except: return await message.answer('Введите число без символов')
+			data['exp_ts'] = exp_ts
+			async with httpx.AsyncClient() as client:
+				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'update', 'id': data['license_key_id'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
+				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'get', 'id': data['license_key_id']})).json()
+	await state.finish()
+	await message.answer(f'<b>Ключ обновлён</b>\n├ ID:  <code>{resp["license_key"]["id"]}</code>\n├ Макс. подключений:  <code>{resp["license_key"]["max_connections"]}</code>\n├ Активен до:  <code>{datetime.fromtimestamp(resp["license_key"]["exp_ts"])}</code>\n└ Значение:  <code>{resp["license_key"]["value"]}</code>', reply_markup=await kb_key_manage(resp['license_key']))
+@dp.callback_query_handler(state=Key.change)
+async def Key_change_(call: types.CallbackQuery, state: FSMContext):
+	cd = call.data.split(':')
+	async with state.proxy() as data:
+		if data['state'] == 'exp_ts':
+			try: exp_ts = int(cd[0])
+			except: return
+			data['exp_ts'] = exp_ts
+			async with httpx.AsyncClient() as client:
+				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'update', 'id': data['license_key_id'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
+				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'get', 'id': data['license_key_id']})).json()
+	await state.finish()
+	await call.message.edit_text(f'<b>Ключ обновлён</b>\n├ ID:  <code>{resp["license_key"]["id"]}</code>\n├ Макс. подключений:  <code>{resp["license_key"]["max_connections"]}</code>\n├ Активен до:  <code>{datetime.fromtimestamp(resp["license_key"]["exp_ts"])}</code>\n└ Значение:  <code>{resp["license_key"]["value"]}</code>', reply_markup=await kb_key_manage(resp['license_key']))
+
+
+
+@dp.message_handler(state=Key.search)
+async def Key_search(message: types.Message, state: FSMContext):
+	mt = message.text.strip()
+	async with httpx.AsyncClient() as client:
+		payload = {'action': 'get', 'value': mt}
+		if mt.isdigit(): payload['id'] = mt
+		resp = (await client.post(f'{website_url}/api/license_key', json=payload)).json()
+		if resp['error']:
+			await state.finish()
+			return await message.answer(f'Ошибка при поиске ключа: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('key:menu'))
+		if resp['license_key']:
+			await state.finish()
+			await message.answer(f'<b>Информация о ключе</b>\n├ ID:  <code>{resp["license_key"]["id"]}</code>\n├ Макс. подключений:  <code>{resp["license_key"]["max_connections"]}</code>\n├ Активен до:  <code>{datetime.fromtimestamp(resp["license_key"]["exp_ts"])}</code>\n└ Значение:  <code>{resp["license_key"]["value"]}</code>', reply_markup=await kb_key_manage(resp['license_key']))
+		else:
+			await message.answer('<b>Поиск ключа</b>\n<b>❌ Не удалось найти ключа с задаными параметрами</b>\n<i>Введите ID\\значение ключа</i>', reply_markup=await kb_back('key:menu'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @dp.callback_query_handler(text_startswith='utils', state='*')
@@ -233,7 +414,7 @@ async def handler_utils(call: types.CallbackQuery, state: FSMContext, custom_dat
 	cd = custom_data.split(':') if custom_data else call.data.split(':')
 
 	if cd[1] == 'menu':
-		await call.message.edit_text(text=f'<b>Меню управления криптом</b>', reply_markup=await kb_menu(uid))
+		await call.message.edit_text(text=f'<b>Меню управления криптом</b>', reply_markup=await kb_menu())
 
 	elif cd[1] == 'delete':
 		try: await call.message.delete()

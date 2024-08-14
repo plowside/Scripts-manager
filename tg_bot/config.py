@@ -4,4 +4,4 @@ admin_ids = [6315225351] # ID админов через запятую. Прим
 
 antiflood_limit = 0.5
 antiflood_text = 'не смапь'
-website_url = 'http://localhost'
+website_url = 'https://test.shpotipad.ru'
