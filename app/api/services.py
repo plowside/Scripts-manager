@@ -219,7 +219,7 @@ class EncryptSystem:
 		async with aiofiles.open('app/templates/encrypt_armor.py', 'r', encoding='utf-8') as template_file:
 			template_code = await template_file.read()
 		
-		template_code = template_code.replace('here_fernet_default_key', settings.default_salt).replace('here_fernet_project_key', project_salt)
+		template_code = template_code.replace('here_website_url', settings.website_url).replace('here_project_uuid', self.project_uuid).replace('here_fernet_default_key', settings.default_salt).replace('here_fernet_project_key', project_salt)
 		for path, content in files_to_encrypt.items():
 			if isinstance(content, dict):
 				for file_name, action in content.items():
@@ -252,7 +252,7 @@ class EncryptSystem:
 				async with aiofiles.open(file_path, 'r', encoding='utf-8') as original_file:
 					original_code = await original_file.read()
 				
-				modified_code = f'{template_code}\n\n\n\n{original_code}'
+				modified_code = f'{template_code}\n\n\n\n{original_code}'.replace('asyncio.run(', '__loop.run_until_complete(')
 				
 				async with aiofiles.open(file_path, 'w', encoding='utf-8') as modified_file:
 					await modified_file.write(modified_code)

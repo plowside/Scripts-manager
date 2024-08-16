@@ -156,7 +156,7 @@ async def handler_utils(call: types.CallbackQuery, state: FSMContext, custom_dat
 		await call.message.edit_text('<b>Все проекты</b>', reply_markup=await kb_project_all())
 
 	elif cd[1] == 'delete':
-		async with httpx.AsyncClient() as client:
+		async with httpx.AsyncClient(timeout=360) as client:
 			resp = await client.post(f'{website_url}/api/project', json={'action': 'delete', 'id': int(cd[2])})
 
 		await call.message.edit_text('<b>Управление проектами</b>', reply_markup=await kb_project_menu())
@@ -179,7 +179,7 @@ async def handler_utils(call: types.CallbackQuery, state: FSMContext, custom_dat
 			await call.message.edit_text('<b>Поиск проекта</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
 			await Project.search.set()
 		else:
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/project', json={'action': 'get', 'id': int(cd[2])})).json()
 				if resp['error']:
 					await state.finish()
@@ -201,7 +201,7 @@ async def Project_create(message: types.Message, state: FSMContext):
 			await message.answer(f'<b>Создание проекта</b>\n└ Название:  <code>{mt}</code>\n<i>Отправьте .zip архив проекта</i>', reply_markup=await kb_project_create(state='archive'))
 		
 		elif data['state'] == 'archive':
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/project', json={'action': 'create', 'name': data['name']})).json()
 				if resp['error']:
 					await state.finish()
@@ -223,7 +223,7 @@ async def Project_create_(call: types.CallbackQuery, state: FSMContext):
 	cd = call.data.split(':')
 	async with state.proxy() as data:
 		if len(cd) == 2 and cd[0] == '__encrypt__' and cd[1] == '__encrypt__':
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'encrypt'}, files={'project_uuid': (None, data['project']['uuid']), 'files_to_encrypt': (None, json.dumps(data['files_to_encrypt']))})).json()
 				if resp['error']:
 					await state.finish()
@@ -239,7 +239,7 @@ async def Project_create_(call: types.CallbackQuery, state: FSMContext):
 @dp.message_handler(state=Project.search)
 async def Project_search(message: types.Message, state: FSMContext):
 	mt = message.text.strip()
-	async with httpx.AsyncClient() as client:
+	async with httpx.AsyncClient(timeout=360) as client:
 		payload = {'action': 'get', 'name': mt, 'uuid': mt}
 		if mt.isdigit(): payload['id'] = mt
 		resp = (await client.post(f'{website_url}/api/project', json=payload)).json()
@@ -266,7 +266,7 @@ async def handler_key(call: types.CallbackQuery, state: FSMContext, custom_data 
 		await call.message.edit_text('<b>Управление ключами</b>', reply_markup=await kb_key_menu())
 
 	elif cd[1] == 'delete':
-		async with httpx.AsyncClient() as client:
+		async with httpx.AsyncClient(timeout=360) as client:
 			resp = await client.post(f'{website_url}/api/license_key', json={'action': 'delete', 'id': int(cd[2])})
 
 		await call.message.edit_text('<b>Управление ключами</b>', reply_markup=await kb_key_menu())
@@ -312,7 +312,7 @@ async def Key_create(message: types.Message, state: FSMContext):
 			try: max_conns = int(mt)
 			except: return await message.answer('Введите число без символов')
 			data['max_conns'] = max_conns
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'create', 'project_id': data['project_id'], 'max_connections': data['max_conns'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
 				if resp['error']:
 					await state.finish()
@@ -336,7 +336,7 @@ async def Key_create_(call: types.CallbackQuery, state: FSMContext):
 			try: max_conns = int(cd[0])
 			except Exception as e: return await call.answer(f'error: {e}')
 			data['max_conns'] = max_conns
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'create', 'project_id': data['project_id'], 'max_connections': data['max_conns'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
 				if resp['error']:
 					await state.finish()
@@ -354,7 +354,7 @@ async def Key_change(message: types.Message, state: FSMContext):
 			try: exp_ts = int(mt)
 			except: return await message.answer('Введите число без символов')
 			data['exp_ts'] = exp_ts
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'update', 'id': data['license_key_id'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
 				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'get', 'id': data['license_key_id']})).json()
 	await state.finish()
@@ -367,7 +367,7 @@ async def Key_change_(call: types.CallbackQuery, state: FSMContext):
 			try: exp_ts = int(cd[0])
 			except: return
 			data['exp_ts'] = exp_ts
-			async with httpx.AsyncClient() as client:
+			async with httpx.AsyncClient(timeout=360) as client:
 				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'update', 'id': data['license_key_id'], 'exp_ts': int(time.time()) + data['exp_ts']})).json()
 				resp = (await client.post(f'{website_url}/api/license_key', json={'action': 'get', 'id': data['license_key_id']})).json()
 	await state.finish()
@@ -378,7 +378,7 @@ async def Key_change_(call: types.CallbackQuery, state: FSMContext):
 @dp.message_handler(state=Key.search)
 async def Key_search(message: types.Message, state: FSMContext):
 	mt = message.text.strip()
-	async with httpx.AsyncClient() as client:
+	async with httpx.AsyncClient(timeout=360) as client:
 		payload = {'action': 'get', 'value': mt}
 		if mt.isdigit(): payload['id'] = mt
 		resp = (await client.post(f'{website_url}/api/license_key', json=payload)).json()

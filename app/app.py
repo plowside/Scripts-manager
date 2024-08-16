@@ -1,4 +1,4 @@
-import asyncio, httpx
+import asyncio, httpx, time
 
 from typing import Annotated, Union
 
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 	yield
 	await db.close_pool()
 
-app = FastAPI(lifespan=lifespan, title='Scheduler')
+app = FastAPI(lifespan=lifespan, title='Scheduler', docs_url=None, redoc_url=None)
 app.mount('/storage', StaticFiles(directory='app/storage'), name='storage')
 app.include_router(api_router)
 app.add_middleware(
@@ -38,6 +38,9 @@ app.add_middleware(
 )
 #################################################################################################################################
 
+@app.get('/ts')
+async def ts(request: Request):
+	return time.time()
 
 @app.get('/headers')
 async def headers(request: Request):

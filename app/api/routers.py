@@ -76,20 +76,23 @@ async def license_key(payload: LicenseKeyPayload):
 
 			case 'check':
 				decrypted_payload = await LicenseKey.decrypt(encrypted_payload=payload.key, key=settings.default_salt)
-				this_license_key, this_mac, this_hwid = decrypted_payload.split(':')
+				this_project_uuid, this_license_key, this_mac, this_hwid = decrypted_payload.split(':')
 				this_hwid = None if this_hwid.lower() in ['', 'none', 'null'] else this_hwid
 				get_license_key = await LicenseKey.get(value=this_license_key)
 				if not get_license_key:
 					return {'error': True, 'error_msg': 'invalid_license_key', 'error_desc': 'Недействительный ключ активации'}
 				elif get_license_key.exp_ts <= await ts():
 					return {'error': True, 'error_msg': 'expired_license_key', 'error_desc': 'Просроченный ключ активации'}
+				
+				get_project = await Project.get(id=get_license_key.project_id)
+				if not get_project or get_project.uuid != this_project_uuid:
+					return {'error': True, 'error_msg': 'invalid_license_key', 'error_desc': 'Недействительный ключ активации'}
 
 				verify_license_key = await LicenseKey.verify(license_key=get_license_key, mac=this_mac, hwid=this_hwid)
 				if not verify_license_key[0]:
 					return {'error': True, 'error_msg': verify_license_key[1], 'error_desc': verify_license_key[2]}
 
-				get_project = await Project.get(id=get_license_key.project_id)
-				return {'error': False, 'pyarmor_key': await LicenseKey.encrypt(plain_payload=f'{get_project.id}-{get_project.create_ts}:{get_license_key.id}-{get_license_key.create_ts}:{await ts()}-{get_license_key.exp_ts}:{verify_license_key[1]}-{verify_license_key[2]}', key=get_project.salt.encode())}
+				return {'error': False, 'pyarmor_key': await LicenseKey.encrypt(plain_payload=f'{get_project.uuid}-{get_project.create_ts}:{get_license_key.id}-{get_license_key.create_ts}:{await ts()}-{get_license_key.exp_ts}:{verify_license_key[1]}-{verify_license_key[2]}', key=get_project.salt.encode())}
 			case _:
 				return {'error': True, 'error_msg': 'invalid_action', 'error_desc': 'Неизвестное действие'}
 	except Exception as e:

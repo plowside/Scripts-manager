@@ -10,6 +10,7 @@ class Database(BaseModel):
 class Settings(BaseModel):
 	database: Database
 	default_salt: str
+	website_url: str
 
 
 
@@ -23,5 +24,6 @@ settings = Settings(
 		host='ep-wispy-wind-a2usxind.eu-central-1.aws.neon.tech',
 		port=5432
 	),
-	default_salt='C7JO-z2qkb1qoLfkuxmyZJ4q7OqdFucPyYY2YSvVvZc='
+	default_salt='C7JO-z2qkb1qoLfkuxmyZJ4q7OqdFucPyYY2YSvVvZc=',
+	website_url='http://localhost'
 )
