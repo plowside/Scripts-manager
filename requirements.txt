@@ -1,9 +1,11 @@
 httpx
 pyjwt
 typing
+cashews
 fastapi
 uvicorn
 uvicorn[standard]
+aiogram==2.25.1
 asyncpg
 aiofiles
 pydantic
