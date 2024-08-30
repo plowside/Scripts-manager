@@ -41,6 +41,7 @@ class is_reg(BoundFilter):
 
 class Project(StatesGroup):
 	create = State()
+	update = State()
 	search = State()
 
 class Key(StatesGroup):
@@ -190,6 +191,22 @@ async def handler_utils(call: types.CallbackQuery, state: FSMContext, custom_dat
 				else:
 					await call.message.edit_text('<b>Поиск проекта</b>\n<b>❌ Не удалось найти проект с задаными параметрами</b>\n<i>Введите ID\\uuid\\название проекта </i>', reply_markup=await kb_back('project:menu'))
 
+	elif cd[1] == 'update':
+		action = cd[2]
+		project_id = int(cd[3])
+
+		async with httpx.AsyncClient(timeout=360) as client:
+			resp = (await client.post(f'{website_url}/api/project', json={'action': 'get', 'id': project_id})).json()
+			if resp['error']:
+				await state.finish()
+				return await call.message.edit_text(f'Ошибка при поиске проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
+
+		if action == 'files':
+			await Project.update.set()
+			async with state.proxy() as data:
+				data['state'] = 'archive'
+				data['project'] = resp['project']
+				msg = await call.message.edit_text(f'<b>Обновление проекта</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n\n<i>Отправьте .zip архив проекта</i>', reply_markup=await kb_project_update(project_id=data["project"]["id"], state='archive'))
 
 @dp.message_handler(state=Project.create, content_types=['document', 'text'])
 async def Project_create(message: types.Message, state: FSMContext):
@@ -235,6 +252,40 @@ async def Project_create_(call: types.CallbackQuery, state: FSMContext):
 
 		data['files_to_encrypt'][cd[0]] += 1 if data['files_to_encrypt'][cd[0]] in (0, 1) else -2
 		await call.message.edit_text(f'<b>Создание проекта</b>\n└ Название:  <code>{data["name"]}</code>\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_create(state='choose_files', files_to_encrypt=data['files_to_encrypt']))
+
+
+@dp.message_handler(state=Project.update, content_types=['document'])
+async def Project_update(message: types.Message, state: FSMContext):
+	async with state.proxy() as data:
+		if data['state'] == 'archive':
+			async with httpx.AsyncClient(timeout=360) as client:
+				file = await bot.get_file(message.document.file_id)
+				file_resp = await client.get(f'https://api.telegram.org/file/bot{bot_token}/{file.file_path}')
+				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'upload_zip'}, files={'project_uuid': (None, data['project']['uuid']), 'project_file': file_resp.content})).json()
+				if resp['error']:
+					await state.finish()
+					return await message.answer(f'Ошибка при загрузке файлов проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
+				data['files_to_encrypt'] = resp['files_to_encrypt']
+			data['state'] = 'choose_files'
+			await message.answer(f'<b>Обновление проекта</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_update(project_id=data["project"]["id"], state='choose_files', files_to_encrypt=data['files_to_encrypt']))
+@dp.callback_query_handler(state=Project.update)
+async def Project_update_(call: types.CallbackQuery, state: FSMContext):
+	cd = call.data.split(':')
+	async with state.proxy() as data:
+		if len(cd) == 2 and cd[0] == '__encrypt__' and cd[1] == '__encrypt__':
+			async with httpx.AsyncClient(timeout=360) as client:
+				resp = (await client.post(f'{website_url}/api/encrypt', params={'action': 'encrypt'}, files={'project_uuid': (None, data['project']['uuid']), 'files_to_encrypt': (None, json.dumps(data['files_to_encrypt']))})).json()
+				if resp['error']:
+					await state.finish()
+					return await call.message.edit_text(f'Ошибка при загрузке файлов проекта: <b>{resp["error_desc"]}</b>', reply_markup=await kb_back('project:menu'))
+
+			await call.message.edit_text(f'<b>Проект обновлён</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>', reply_markup=await kb_project_manage(data['project']))
+			await state.finish()
+			return
+
+		data['files_to_encrypt'][cd[0]] += 1 if data['files_to_encrypt'][cd[0]] in (0, 1) else -2
+		await call.message.edit_text(f'<b>Обновление проекта</b>\n├ ID:  <code>{data["project"]["id"]}</code>\n├ Название:  <code>{data["project"]["name"]}</code>\n├ Соль:  <code>{data["project"]["salt"]}</code>\n└ UUID: <code>{data["project"]["uuid"]}</code>\n\n<i>Выберите файлы для крипта</i>\n0 - без крипта\n1 - крипт\n2 - крипт + ключ', reply_markup=await kb_project_update(project_id=data["project"]["id"], state='choose_files', files_to_encrypt=data['files_to_encrypt']))
+
 
 @dp.message_handler(state=Project.search)
 async def Project_search(message: types.Message, state: FSMContext):

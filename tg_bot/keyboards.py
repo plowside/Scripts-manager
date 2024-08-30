@@ -46,7 +46,7 @@ async def kb_project_all():
 	return keyboard
 
 async def kb_project_manage(project):
-	s = {'Скачать': f'url^{website_url}/storage/{project["uuid"]}', '': 'cd^_', '❌ Удалить': f'cd^project:delete:{project["id"]}', '↪ Назад': 'cd^project:all'} #'✏️ Переименовать': f'cd^project:{project["id"]}:change:name'
+	s = {'Скачать': f'url^{website_url}/storage/{project["uuid"]}', '': 'cd^_', 'Обновить файлы': f'cd^project:update:files:{project["id"]}', '': 'cd^__', '❌ Удалить': f'cd^project:delete:{project["id"]}', '↪ Назад': 'cd^project:all'} #'✏️ Переименовать': f'cd^project:{project["id"]}:change:name'
 	keyboard = await kb_construct(InlineKeyboardMarkup(row_width=2), s)
 	return keyboard
 
@@ -57,6 +57,17 @@ async def kb_project_create(state: str = None, files_to_encrypt: dict = {}):
 		row_width = 1
 	elif state == 'archive':
 		s = {'↪ Назад':'cd^project:menu'}
+	elif state == 'choose_files':
+		s = {**{f'{x} - {files_to_encrypt[x]}': f'cd^{x}' for x in files_to_encrypt}, '💎 Закриптовать': 'cd^__encrypt__:__encrypt__'}
+	else:
+		s = {}
+	keyboard = await kb_construct(InlineKeyboardMarkup(row_width=row_width), s)
+	return keyboard
+
+async def kb_project_update(project_id: int, state: str = None, files_to_encrypt: dict = {}):
+	row_width = 2
+	if state == 'archive':
+		s = {'↪ Назад':f'cd^project:search:{project_id}'}
 	elif state == 'choose_files':
 		s = {**{f'{x} - {files_to_encrypt[x]}': f'cd^{x}' for x in files_to_encrypt}, '💎 Закриптовать': 'cd^__encrypt__:__encrypt__'}
 	else:

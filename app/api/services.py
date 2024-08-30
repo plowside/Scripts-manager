@@ -261,10 +261,14 @@ class EncryptSystem:
 				await process.communicate()
 
 	def create_zip_archive(self, directory: str):
-		dir_hash = hashlib.md5(directory.encode()).hexdigest()
-
 		with zipfile.ZipFile(self.zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
 			for root, dirs, files in os.walk(directory):
+				for dir in dirs:
+					dir_path = os.path.join(root, dir)
+					if not os.listdir(dir_path):
+						rel_path = os.path.relpath(dir_path, directory) + '/'
+						zipf.write(dir_path, rel_path)
+
 				for file in files:
 					file_path = os.path.join(root, file)
 					rel_path = os.path.relpath(file_path, directory)
